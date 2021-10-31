@@ -20,12 +20,14 @@ public:
     }
     LowState ReceiveObservation();
     void SendCommand(std::array<float, 60> motorcmd);
+    void SendHighCommand(std::array<float, 8> high_cmd);
     void Initialize();
 
     UDP udp;
     Safety safe;
     LowState state = {0};
     LowCmd cmd = {0};
+    HighCmd highCmd = {0};
 };
 
 LowState RobotInterface::ReceiveObservation() {
@@ -46,6 +48,23 @@ void RobotInterface::SendCommand(std::array<float, 60> motorcmd) {
     }
     safe.PositionLimit(cmd);
     udp.SetSend(cmd);
+    udp.Send();
+}
+
+void RobotInterface::SendHighCommand(std::array<float, 8> motorCmd) {
+
+    // Insert the motorCmd to highCmd according the following order:
+    highCmd.mode = motorCmd[0];      // 0:idle, default stand      1:forced stand     2:walk continuously
+    highCmd.forwardSpeed = motorCmd[1];
+    highCmd.sideSpeed = motorCmd[2];
+    highCmd.rotateSpeed = motorCmd[3];
+    highCmd.bodyHeight = motorCmd[4];
+    highCmd.roll  = motorCmd[5];
+    highCmd.pitch = motorCmd[6];
+    highCmd.yaw = motorCmd[7];
+
+    // safe.PositionLimit(cmd);
+    udp.SetSend(highCmd);
     udp.Send();
 }
 
@@ -194,7 +213,8 @@ PYBIND11_MODULE(robot_interface, m) {
     py::class_<RobotInterface>(m, "RobotInterface")
         .def(py::init<>())
         .def("receive_observation", &RobotInterface::ReceiveObservation)
-        .def("send_command", &RobotInterface::SendCommand);
+        .def("send_command", &RobotInterface::SendCommand)
+        .def("send_high_command", &RobotInterface::SendHighCommand);
 
     #ifdef VERSION_INFO
       m.attr("__version__") = VERSION_INFO;
